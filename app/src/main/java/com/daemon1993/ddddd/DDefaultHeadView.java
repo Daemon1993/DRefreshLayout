@@ -43,4 +43,19 @@ public class DDefaultHeadView extends FrameLayout implements DHeadViewHandler {
         super.onDraw(canvas);
         Log.e("  sds ","onDraw");
     }
+
+    @Override
+    public void onPullRefresh() {
+
+    }
+
+    @Override
+    public void onReleaseRefresh() {
+
+    }
+
+    @Override
+    public void onProgressRefreshing(int progress, int total) {
+
+    }
 }

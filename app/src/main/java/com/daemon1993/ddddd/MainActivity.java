@@ -27,7 +27,7 @@ public class MainActivity extends AppCompatActivity {
         LinearLayout.LayoutParams layoutParams=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
 
-        drlRefresh.setRefreshView(dDefaultHeadView,layoutParams);
+//        drlRefresh.setRefreshView(dDefaultHeadView,layoutParams);
 
         drlRefresh.addOnRefreshListsner(new DSwipeRefreshLayout.OnRefreshListsner() {
             @Override

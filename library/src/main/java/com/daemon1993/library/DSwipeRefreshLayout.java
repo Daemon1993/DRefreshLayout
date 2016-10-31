@@ -1,14 +1,13 @@
 package com.daemon1993.library;
 
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.support.v4.view.ViewCompat;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.ViewConfiguration;
 import android.view.ViewGroup;
-import android.widget.Scroller;
 
 import com.socks.library.KLog;
 
@@ -29,14 +28,13 @@ public class DSwipeRefreshLayout extends ViewGroup {
 
     private float downOldY;
 
-    private Scroller mScroller;
+
     private int mYLastMove;
     private float dragDamp = 0.4f;
     private int scrolledY;
-    private int realScollSize;
-    //下拉状态
-    private boolean ispullRefresh;
-    private int mTouchSlop;
+
+    //下拉状态 一半后可以开始刷新
+    private boolean isCanRefresh;
 
 
     //是否刷新中
@@ -47,26 +45,19 @@ public class DSwipeRefreshLayout extends ViewGroup {
     //和 refreshView 同一个对象 只是转换出来的不同 方便在Head做一些动画
     private DHeadViewHandler mHeadViewRefreshHanlder;
 
+    private int mRefreshStyle = DHeadViewHandler.RfreshStyle1;
+    private float limitScorllY;
 
-    public void setRefreshView(View refreshView, ViewGroup.LayoutParams layoutParams) {
-        if(!(refreshView instanceof DHeadViewHandler)){
-            throw  new RuntimeException("RefreshHead must interface DHeadViewHandler");
-        }else{
-            this.mHeadViewRefreshHanlder= (DHeadViewHandler) refreshView;
-        }
 
-        if (mRefreshView == refreshView) {
-            return;
-        }
+    //刷新控件恢复到展开位置 刷新结束
+    private ValueAnimator refreshAnima = ValueAnimator.ofInt(0, 10);
+    private float moveY;
 
-        if (mRefreshView != null && mRefreshView.getParent() != null) {
-            ((ViewGroup) mRefreshView.getParent()).removeView(mRefreshView);
-        }
+    private int animaType = 0;
+    private int expandSizeY;
 
-        addView(refreshView, layoutParams);
-
-        mRefreshView = refreshView;
-    }
+    private int oldValue;
+    private boolean isScrollChange=true;
 
 
     public interface OnRefreshListsner {
@@ -87,20 +78,44 @@ public class DSwipeRefreshLayout extends ViewGroup {
         this(context, attrs, 0);
     }
 
-    public DSwipeRefreshLayout(Context context, AttributeSet attrs, int defStyleAttr) {
+    public DSwipeRefreshLayout(Context context, AttributeSet attrs, final int defStyleAttr) {
         super(context, attrs, defStyleAttr);
 
         initView(context);
 
+
+        refreshAnima.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                if (mRefreshView != null) {
+
+                    //缩小为刷新状态
+                    int value = (int) animation.getAnimatedValue();
+                    int dy = value - oldValue;
+                    if (animaType == 0 || animaType == 2) {
+                        mRefreshView.offsetTopAndBottom(-dy);
+                        mTarget.offsetTopAndBottom(-dy);
+                    } else if (animaType == 1) {
+                        mRefreshView.offsetTopAndBottom(dy);
+                        mTarget.offsetTopAndBottom(dy);
+                    }
+                    oldValue = value;
+
+                    //KLog.e("top " + mRefreshView.getTop() + "  dy " + dy);
+
+                }
+            }
+        });
     }
 
     private void initView(Context context) {
 
-        // 第一步，创建Scroller的实例
-        mScroller = new Scroller(context);
+        DefaultHeadView defaultHeadView = new DefaultHeadView(context);
 
-        mTouchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
+        LayoutParams layoutParams = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
 
+        setRefreshView(defaultHeadView, layoutParams);
     }
 
 
@@ -157,6 +172,10 @@ public class DSwipeRefreshLayout extends ViewGroup {
         mRefreshInitialOffset = -mRefreshView.getMeasuredHeight();
 
         mYLastMove = (int) (mRefreshView.getMeasuredHeight() / dragDamp);
+
+        limitScorllY = mRefreshView.getMeasuredHeight();
+
+
     }
 
 
@@ -189,6 +208,8 @@ public class DSwipeRefreshLayout extends ViewGroup {
 
         Log.e(TAG, mRefreshInitialOffset + "  " + mRefreshView.getMeasuredHeight());
         Log.e(TAG, mRefreshView.getTop() + "  " + mRefreshView.getBottom());
+
+
     }
 
 
@@ -217,61 +238,35 @@ public class DSwipeRefreshLayout extends ViewGroup {
 
                 Log.e(TAG, "ACTION_DOWN " + downOldY);
 
-                ispullRefresh = false;
+                moveY = -1;
+                isCanRefresh = false;
+
+
                 break;
 
             case MotionEvent.ACTION_MOVE:
-
-
-                scrolledY = (int) (event.getY() - downOldY);
-                //Log.e(TAG, "偏移量" + scrolledY + "ACTION_DOWN " + downOldY);
-
-                if (ispullRefresh && scrolledY < 0) {
-                    //向上
-                    scrollTo(0, 0);
-                    ispullRefresh = false;
-                } else if (scrolledY > mTouchSlop) {
-                    if (scrolledY > mYLastMove * 2) {
-                        scrolledY = mYLastMove * 2;
-                    }
-
-                    realScollSize = (int) (scrolledY * dragDamp);
-
-                    scrollTo(0, -realScollSize);
-                    ispullRefresh = true;
+                if (moveY == -1) {
+                    moveY = downOldY;
                 }
+
+                scrolledY = (int) (event.getY() - moveY);
+                moveY = event.getY();
+
+                isScrollChange = moveSpinner(scrolledY);
 
                 break;
             case MotionEvent.ACTION_UP:
 
-                float limitScorllY = mYLastMove * dragDamp / 2;
+                KLog.e("isCanRefresh  " + isCanRefresh +"  isScrollChange "+isScrollChange);
 
-                if (realScollSize >= limitScorllY) {
-                    Log.e(TAG, "大于一半");
-                    if (ispullRefresh) {
+                //没动过
+                if (!isScrollChange) {
+                    return true;
+                }
 
-                        int maxSize = (int) (mYLastMove * dragDamp);
-
-
-                        //复原到最大展开状态
-                        mScroller.startScroll(0, -realScollSize, 0,
-                                -maxSize + realScollSize);
-
-                        realScollSize=maxSize;
-
-                        KLog.e("展开位置 " +realScollSize);
-
-                        invalidate();
-                        //正在刷新状态
-                        isRefreshing = true;
-
-                        if (mOnRefreshListsner != null) {
-                            mOnRefreshListsner.onRefresh();
-                        }
-
-                    }
+                if (isCanRefresh) {
+                    finishSpinner();
                 } else {
-                    Log.e(TAG, "小于一半");
                     reSetView();
                 }
 
@@ -284,18 +279,130 @@ public class DSwipeRefreshLayout extends ViewGroup {
     }
 
     /**
-     * 界面复原
+     * 刷新中....UI复原
+     */
+    private void finishSpinner() {
+
+        expandSizeY = mRefreshView.getTop();
+
+
+        if (expandSizeY > 0) {
+            animaType = 0;
+        } else {
+            //小于 展开
+            expandSizeY = -expandSizeY;
+            animaType = 1;
+        }
+        oldValue = 0;
+        refreshAnima.end();
+        refreshAnima.setIntValues(0, expandSizeY);
+        refreshAnima.setDuration(100);
+        refreshAnima.start();
+        //KLog.e("realScollSize " + expandSizeY);
+
+//        mRefreshView.offsetTopAndBottom(-expandSizeY);
+//        mTarget.offsetTopAndBottom(-expandSizeY);
+//        invalidate();
+
+
+        //正在刷新状态
+        isRefreshing = true;
+
+        if (mOnRefreshListsner != null) {
+            mOnRefreshListsner.onRefresh();
+        }
+
+    }
+
+    /**
+     * @param scrolledY
+     * @return 是否滚动过 up 时需要
+     */
+    private boolean moveSpinner(int scrolledY) {
+
+        int realScollSize = mRefreshView.getTop();
+
+        KLog.e("realScollSize " + realScollSize + "  scrolledY " + scrolledY);
+        if (realScollSize + mRefreshView.getMeasuredHeight() <= 0) {
+            //已经停在隐藏处
+            if (scrolledY < 0) {
+
+                return false;
+            }
+        }
+
+        //滚动下滑style
+        if (mRefreshStyle == DHeadViewHandler.RfreshStyle1) {
+
+            if (realScollSize >= mYLastMove * 2) {
+                return false;
+            } else if (realScollSize < -mRefreshView.getMeasuredHeight()) {
+
+                return false;
+            }
+
+            int realsize = (int) (scrolledY * dragDamp);
+
+            int endTop = mRefreshView.getTop() + realsize;
+            if (endTop < -mRefreshView.getMeasuredHeight()) {
+                realsize = -mRefreshView.getMeasuredHeight() - mRefreshView.getTop();
+                KLog.e("超过最小  重新设置realsize " + realsize);
+            }
+
+            if (endTop > mYLastMove * 2) {
+                realsize = mYLastMove * 2 - mRefreshView.getTop();
+                KLog.e("超过最大  重新设置realsize " + realsize);
+            }
+
+            mRefreshView.offsetTopAndBottom(realsize);
+            mTarget.offsetTopAndBottom(realsize);
+
+            invalidate();
+
+
+        } else if (mRefreshStyle == DHeadViewHandler.RfreshStyle2) {
+            //侵入式 style
+
+        }
+
+
+        realScollSize = mRefreshView.getTop();
+
+        KLog.e("realScollSize  " + realScollSize + "   limitScorllY " + limitScorllY);
+        if (realScollSize >= (-mRefreshView.getMeasuredHeight() * 0.7f)) {
+            Log.e(TAG, "大于一半");
+            isCanRefresh = true;
+        } else {
+            Log.e(TAG, "小于一半");
+            isCanRefresh = false;
+        }
+
+
+        return true;
+    }
+
+    /**
+     * 界面复原 到隐藏
      */
     private void reSetView() {
 
-        mScroller.startScroll(0, -realScollSize, 0,
-                realScollSize);
 
-        invalidate();
+        animaType = 2;
+        oldValue = 0;
+        refreshAnima.end();
+        refreshAnima.setIntValues(0, mRefreshView.getMeasuredHeight());
+        refreshAnima.setDuration(100);
+        refreshAnima.start();
+
+
+//        int dy = -mRefreshView.getMeasuredHeight() - mRefreshView.getTop();
+//
+//        KLog.e("reSetView " + mRefreshView.getTop() + "  " + dy);
+//        mRefreshView.offsetTopAndBottom(dy);
+//        mTarget.offsetTopAndBottom(dy);
 
         isRefreshing = false;
-        ispullRefresh = false;
-
+        isCanRefresh = false;
 
     }
 
@@ -303,7 +410,7 @@ public class DSwipeRefreshLayout extends ViewGroup {
      * 刷新结束 外部调用 恢复原样
      */
     public void refreshOk() {
-        if (ispullRefresh) {
+        if (isCanRefresh) {
             reSetView();
         }
 
@@ -332,12 +439,58 @@ public class DSwipeRefreshLayout extends ViewGroup {
         return false;
     }
 
-    @Override
-    public void computeScroll() {
 
-        if (mScroller.computeScrollOffset()) {
-            scrollTo(0, mScroller.getCurrY());
-            invalidate();
+    /**
+     * 设置头部
+     *
+     * @param refreshView
+     * @param layoutParams
+     */
+    public void setRefreshView(View refreshView, ViewGroup.LayoutParams layoutParams) {
+        if (!(refreshView instanceof DHeadViewHandler)) {
+            throw new RuntimeException("RefreshHead must interface DHeadViewHandler");
+        } else {
+            this.mHeadViewRefreshHanlder = (DHeadViewHandler) refreshView;
+        }
+
+        if (mRefreshView == refreshView) {
+            return;
+        }
+
+        if (mRefreshView != null && mRefreshView.getParent() != null) {
+            ((ViewGroup) mRefreshView.getParent()).removeView(mRefreshView);
+        }
+
+        addView(refreshView, layoutParams);
+
+        mRefreshView = refreshView;
+    }
+
+    public void setRefreshStyle(int type) {
+        this.mRefreshStyle = type;
+    }
+
+
+    /**
+     * Per-child layout information for layouts that support margins.
+     */
+    public static class LayoutParams extends MarginLayoutParams {
+
+        public LayoutParams(Context c, AttributeSet attrs) {
+            super(c, attrs);
+        }
+
+        public LayoutParams(int width, int height) {
+            super(width, height);
+        }
+
+        public LayoutParams(MarginLayoutParams source) {
+            super(source);
+        }
+
+        public LayoutParams(ViewGroup.LayoutParams source) {
+            super(source);
         }
     }
+
 }
