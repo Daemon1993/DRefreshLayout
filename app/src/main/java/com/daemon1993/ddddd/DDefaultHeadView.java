@@ -7,12 +7,12 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.widget.FrameLayout;
 
-import com.daemon1993.library.DHeadViewHanlder;
+import com.daemon1993.library.DHeadViewHandler;
 
 /**
  * Created by Daemon1993 on 16/10/21 下午5:38.
  */
-public class DDefaultHeadView extends FrameLayout implements DHeadViewHanlder {
+public class DDefaultHeadView extends FrameLayout implements DHeadViewHandler {
 
 
     public DDefaultHeadView(Context context) {

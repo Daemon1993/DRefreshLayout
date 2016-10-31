@@ -10,6 +10,8 @@ import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.widget.Scroller;
 
+import com.socks.library.KLog;
+
 /**
  * 看完SwipeRefreshLayout后
  * 自己实现一个下拉刷新控件
@@ -29,7 +31,7 @@ public class DSwipeRefreshLayout extends ViewGroup {
 
     private Scroller mScroller;
     private int mYLastMove;
-    private float dragDamp = 0.3f;
+    private float dragDamp = 0.4f;
     private int scrolledY;
     private int realScollSize;
     //下拉状态
@@ -42,9 +44,17 @@ public class DSwipeRefreshLayout extends ViewGroup {
 
     private int mRefreshInitialOffset;
 
+    //和 refreshView 同一个对象 只是转换出来的不同 方便在Head做一些动画
+    private DHeadViewHandler mHeadViewRefreshHanlder;
 
 
     public void setRefreshView(View refreshView, ViewGroup.LayoutParams layoutParams) {
+        if(!(refreshView instanceof DHeadViewHandler)){
+            throw  new RuntimeException("RefreshHead must interface DHeadViewHandler");
+        }else{
+            this.mHeadViewRefreshHanlder= (DHeadViewHandler) refreshView;
+        }
+
         if (mRefreshView == refreshView) {
             return;
         }
@@ -86,8 +96,6 @@ public class DSwipeRefreshLayout extends ViewGroup {
 
     private void initView(Context context) {
 
-
-
         // 第一步，创建Scroller的实例
         mScroller = new Scroller(context);
 
@@ -96,12 +104,9 @@ public class DSwipeRefreshLayout extends ViewGroup {
     }
 
 
-
-
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-
 
 
         ensureTarget();
@@ -151,7 +156,7 @@ public class DSwipeRefreshLayout extends ViewGroup {
 
         mRefreshInitialOffset = -mRefreshView.getMeasuredHeight();
 
-        mYLastMove = (int) ((mRefreshView.getMeasuredHeight() + 20) / dragDamp);
+        mYLastMove = (int) (mRefreshView.getMeasuredHeight() / dragDamp);
     }
 
 
@@ -176,23 +181,21 @@ public class DSwipeRefreshLayout extends ViewGroup {
         final int childHeight = height - getPaddingTop() - getPaddingBottom();
 
 
-
         mRefreshView.layout(0, mRefreshInitialOffset, mRefreshView.getMeasuredWidth(),
-                mRefreshView.getMeasuredHeight()+mRefreshInitialOffset);
-        
+                mRefreshView.getMeasuredHeight() + mRefreshInitialOffset);
+
         mTarget.layout(childLeft, childTop, childLeft + childWidth, childTop + childHeight);
 
 
-        Log.e(TAG, mRefreshInitialOffset + "  "+mRefreshView.getMeasuredHeight());
-        Log.e(TAG, mRefreshView.getTop()+"  "+mRefreshView.getBottom());
+        Log.e(TAG, mRefreshInitialOffset + "  " + mRefreshView.getMeasuredHeight());
+        Log.e(TAG, mRefreshView.getTop() + "  " + mRefreshView.getBottom());
     }
 
 
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
 
-
-        if (!ViewCompat.canScrollVertically(mTarget, 1)) {
+        if (!ViewCompat.canScrollVertically(mTarget, -1)) {
             //如果不可以向下滚动 拦截
             Log.e(TAG, "onInterceptTouchEvent 拦截");
             return true;
@@ -228,8 +231,8 @@ public class DSwipeRefreshLayout extends ViewGroup {
                     scrollTo(0, 0);
                     ispullRefresh = false;
                 } else if (scrolledY > mTouchSlop) {
-                    if (scrolledY > mYLastMove) {
-                        scrolledY = mYLastMove;
+                    if (scrolledY > mYLastMove * 2) {
+                        scrolledY = mYLastMove * 2;
                     }
 
                     realScollSize = (int) (scrolledY * dragDamp);
@@ -246,13 +249,22 @@ public class DSwipeRefreshLayout extends ViewGroup {
                 if (realScollSize >= limitScorllY) {
                     Log.e(TAG, "大于一半");
                     if (ispullRefresh) {
+
                         int maxSize = (int) (mYLastMove * dragDamp);
-                        //慢慢展开
+
+
+                        //复原到最大展开状态
                         mScroller.startScroll(0, -realScollSize, 0,
-                                realScollSize - maxSize);
+                                -maxSize + realScollSize);
+
+                        realScollSize=maxSize;
+
+                        KLog.e("展开位置 " +realScollSize);
+
                         invalidate();
                         //正在刷新状态
                         isRefreshing = true;
+
                         if (mOnRefreshListsner != null) {
                             mOnRefreshListsner.onRefresh();
                         }
@@ -271,10 +283,14 @@ public class DSwipeRefreshLayout extends ViewGroup {
         return true;
     }
 
+    /**
+     * 界面复原
+     */
     private void reSetView() {
-        //复原
+
         mScroller.startScroll(0, -realScollSize, 0,
                 realScollSize);
+
         invalidate();
 
         isRefreshing = false;
@@ -287,7 +303,6 @@ public class DSwipeRefreshLayout extends ViewGroup {
      * 刷新结束 外部调用 恢复原样
      */
     public void refreshOk() {
-
         if (ispullRefresh) {
             reSetView();
         }
@@ -321,7 +336,6 @@ public class DSwipeRefreshLayout extends ViewGroup {
     public void computeScroll() {
 
         if (mScroller.computeScrollOffset()) {
-
             scrollTo(0, mScroller.getCurrY());
             invalidate();
         }
