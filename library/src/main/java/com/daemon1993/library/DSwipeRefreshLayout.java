@@ -30,7 +30,7 @@ public class DSwipeRefreshLayout extends ViewGroup {
 
 
     private int mYLastMove;
-    private float dragDamp = 0.4f;
+    private float dragDamp = 0.5f;
     private int scrolledY;
 
     //下拉状态 一半后可以开始刷新
@@ -335,10 +335,10 @@ public class DSwipeRefreshLayout extends ViewGroup {
         if (mRefreshStyle == DHeadViewHandler.RfreshStyle1) {
 
             if (realScollSize >= mYLastMove * 2) {
-                return false;
+                return true;
             } else if (realScollSize < -mRefreshView.getMeasuredHeight()) {
 
-                return false;
+                return true;
             }
 
             int realsize = (int) (scrolledY * dragDamp);
