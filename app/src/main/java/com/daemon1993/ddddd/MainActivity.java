@@ -1,15 +1,22 @@
 package com.daemon1993.ddddd;
 
+import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import com.daemon1993.library.DSwipeRefreshLayout;
 
 public class MainActivity extends AppCompatActivity {
 
-    protected DSwipeRefreshLayout drlRefresh;
+
+    private LinearLayout ll_main;
+    private LinearLayout.LayoutParams layoutParams;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -20,26 +27,30 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initView() {
-        drlRefresh = (DSwipeRefreshLayout) findViewById(R.id.drl_refresh);
+        ll_main = (LinearLayout) findViewById(R.id.ll_main);
 
-        DDefaultHeadView dDefaultHeadView=new DDefaultHeadView(this);
+        layoutParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        layoutParams.setMargins(0, 0, 0, 10);
 
-        LinearLayout.LayoutParams layoutParams=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
+        addViewButton(TextViewActivity.class);
+        addViewButton(ListViewActivity.class);
+        addViewButton(WebViewActivity.class);
 
-//        drlRefresh.setRefreshView(dDefaultHeadView,layoutParams);
+    }
 
-        drlRefresh.addOnRefreshListsner(new DSwipeRefreshLayout.OnRefreshListsner() {
+    private void addViewButton(final Class className) {
+
+        Button bt_text = new Button(this);
+        bt_text.setText(className.getSimpleName());
+
+        bt_text.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onRefresh() {
-                drlRefresh.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                       drlRefresh.refreshOk();
-                    }
-                },2000);
+            public void onClick(View v) {
+                startActivity(new Intent(MainActivity.this, className));
             }
         });
+
+        ll_main.addView(bt_text, layoutParams);
 
     }
 }

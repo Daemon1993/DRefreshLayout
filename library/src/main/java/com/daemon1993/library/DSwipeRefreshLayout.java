@@ -2,14 +2,19 @@ package com.daemon1993.library;
 
 import android.animation.ValueAnimator;
 import android.content.Context;
+import android.support.v4.view.MotionEventCompat;
 import android.support.v4.view.ViewCompat;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AbsListView;
 
 import com.socks.library.KLog;
+
+import static android.support.v4.widget.ViewDragHelper.INVALID_POINTER;
 
 /**
  * 看完SwipeRefreshLayout后
@@ -26,11 +31,8 @@ public class DSwipeRefreshLayout extends ViewGroup {
     private View mTarget;
     private View mRefreshView;
 
-    private float downOldY;
-
-
     private int mYLastMove;
-    private float dragDamp = 0.5f;
+    private float dragDamp = 0.4f;
     private int scrolledY;
 
     //下拉状态 一半后可以开始刷新
@@ -51,13 +53,17 @@ public class DSwipeRefreshLayout extends ViewGroup {
 
     //刷新控件恢复到展开位置 刷新结束
     private ValueAnimator refreshAnima = ValueAnimator.ofInt(0, 10);
-    private float moveY;
+    private float moveY=-1;
 
     private int animaType = 0;
     private int expandSizeY;
 
     private int oldValue;
-    private boolean isScrollChange=true;
+    private boolean isScrollChange = true;
+    private boolean mReturningToStart;
+    private int mActivePointerId;
+    private boolean mIsBeingDragged;
+    private float mInitialDownY;
 
 
     public interface OnRefreshListsner {
@@ -173,8 +179,6 @@ public class DSwipeRefreshLayout extends ViewGroup {
 
         mYLastMove = (int) (mRefreshView.getMeasuredHeight() / dragDamp);
 
-        limitScorllY = mRefreshView.getMeasuredHeight();
-
 
     }
 
@@ -185,6 +189,7 @@ public class DSwipeRefreshLayout extends ViewGroup {
         if (getChildCount() == 0) {
             return;
         }
+
 
         ensureTarget();
         if (mTarget == null) {
@@ -212,41 +217,106 @@ public class DSwipeRefreshLayout extends ViewGroup {
 
     }
 
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+
+        return super.dispatchTouchEvent(ev);
+    }
 
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
 
-        if (!ViewCompat.canScrollVertically(mTarget, -1)) {
-            //如果不可以向下滚动 拦截
-            Log.e(TAG, "onInterceptTouchEvent 拦截");
-            return true;
+        KLog.e("canChildScrollUp()  " + canChildScrollUp());
+
+        final int action = MotionEventCompat.getActionMasked(ev);
+
+        if (!isEnabled() || canChildScrollUp()
+                || isRefreshing) {
+            // Fail fast if we're not in a state where a swipe is possible
+            return false;
         }
 
-        return super.onInterceptTouchEvent(ev);
+
+        //来到这里 说明 不能向上滑动 此时拦截 事件 到了顶部 此时处理状态 向下就拦截 向上不拦截
+        switch (action) {
+            case MotionEvent.ACTION_DOWN:
+
+                KLog.e("ACTION_DOWN");
+                //获取当前event触摸的pointerID
+                mActivePointerId = MotionEventCompat.getPointerId(ev, 0);
+                mIsBeingDragged = false;
+                //计算当前ev距离 初始化按下的 pointerID的距离 也就是初始化距离
+                final float initialDownY = getMotionEventY(ev, mActivePointerId);
+                if (initialDownY == -1) {
+                    return false;
+                }
+                mInitialDownY = initialDownY;
+                break;
+
+            case MotionEvent.ACTION_MOVE:
+                KLog.e("ACTION_MOVE");
+                if (mActivePointerId == INVALID_POINTER) {
+                    KLog.e("Got ACTION_MOVE event but don't have an active pointer id.");
+                    return false;
+                }
+
+                //计算当前ev距离 初始化按下的 pointerID的距离
+                final float y = getMotionEventY(ev, mActivePointerId);
+                if (y == -1) {
+                    return false;
+                }
+                //如果比初始化距离大 就说么向下拉 开始拦截
+                final float yDiff = y - mInitialDownY;
+                //手指向下 下拉 符合条件 拦截
+                if (yDiff > 0 && !mIsBeingDragged) {
+                    mIsBeingDragged = true;
+                }
+                break;
+
+            case MotionEventCompat.ACTION_POINTER_UP:
+
+                break;
+
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                KLog.e("ACTION_UP  ACTION_CANCEL");
+                mIsBeingDragged = false;
+                mActivePointerId = INVALID_POINTER;
+                break;
+        }
+
+        KLog.e(TAG, "onInterceptTouchEvent 拦截 "+mIsBeingDragged);
+
+        return mIsBeingDragged;
+    }
+
+
+    private float getMotionEventY(MotionEvent ev, int activePointerId) {
+        final int index = MotionEventCompat.findPointerIndex(ev, activePointerId);
+        if (index < 0) {
+            return -1;
+        }
+        return MotionEventCompat.getY(ev, index);
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
 
+        KLog.e("onTouchEvent");
         if (isRefreshing) {
             return true;
         }
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
-
-                downOldY = event.getY();
-
-                Log.e(TAG, "ACTION_DOWN " + downOldY);
-
                 moveY = -1;
                 isCanRefresh = false;
-
-
+                KLog.e("ACTION_DOWN " );
                 break;
 
             case MotionEvent.ACTION_MOVE:
+                KLog.e("ACTION_MOVE " + moveY);
                 if (moveY == -1) {
-                    moveY = downOldY;
+                    moveY = event.getY();
                 }
 
                 scrolledY = (int) (event.getY() - moveY);
@@ -257,7 +327,7 @@ public class DSwipeRefreshLayout extends ViewGroup {
                 break;
             case MotionEvent.ACTION_UP:
 
-                KLog.e("isCanRefresh  " + isCanRefresh +"  isScrollChange "+isScrollChange);
+                KLog.e("isCanRefresh  " + isCanRefresh + "  isScrollChange " + isScrollChange);
 
                 //没动过
                 if (!isScrollChange) {
@@ -277,6 +347,28 @@ public class DSwipeRefreshLayout extends ViewGroup {
 
         return true;
     }
+
+    /**
+     * @return Whether it is possible for the child view of this layout to
+     * scroll up. Override this if the child view is a custom view.
+     */
+    public boolean canChildScrollUp() {
+        KLog.e(ViewCompat.canScrollVertically(mTarget, -1));
+
+        if (android.os.Build.VERSION.SDK_INT < 14) {
+            if (mTarget instanceof AbsListView) {
+                final AbsListView absListView = (AbsListView) mTarget;
+                return absListView.getChildCount() > 0
+                        && (absListView.getFirstVisiblePosition() > 0 || absListView.getChildAt(0)
+                        .getTop() < absListView.getPaddingTop());
+            } else {
+                return ViewCompat.canScrollVertically(mTarget, -1) || mTarget.getScrollY() > 0;
+            }
+        } else {
+            return ViewCompat.canScrollVertically(mTarget, -1);
+        }
+    }
+
 
     /**
      * 刷新中....UI复原
@@ -326,7 +418,6 @@ public class DSwipeRefreshLayout extends ViewGroup {
         if (realScollSize + mRefreshView.getMeasuredHeight() <= 0) {
             //已经停在隐藏处
             if (scrolledY < 0) {
-
                 return false;
             }
         }
@@ -369,11 +460,11 @@ public class DSwipeRefreshLayout extends ViewGroup {
         realScollSize = mRefreshView.getTop();
 
         KLog.e("realScollSize  " + realScollSize + "   limitScorllY " + limitScorllY);
-        if (realScollSize >= (-mRefreshView.getMeasuredHeight() * 0.7f)) {
-            Log.e(TAG, "大于一半");
+        if (realScollSize >= 0) {
+
             isCanRefresh = true;
         } else {
-            Log.e(TAG, "小于一半");
+
             isCanRefresh = false;
         }
 
@@ -387,10 +478,13 @@ public class DSwipeRefreshLayout extends ViewGroup {
     private void reSetView() {
 
 
+        int top = mRefreshView.getTop();
+
+        KLog.e("reSetView " + top);
         animaType = 2;
         oldValue = 0;
         refreshAnima.end();
-        refreshAnima.setIntValues(0, mRefreshView.getMeasuredHeight());
+        refreshAnima.setIntValues(0, top + mRefreshView.getMeasuredHeight());
         refreshAnima.setDuration(100);
         refreshAnima.start();
 
