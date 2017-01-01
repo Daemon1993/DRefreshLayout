@@ -8,6 +8,7 @@ import android.view.LayoutInflater;
 import android.widget.FrameLayout;
 
 import com.daemon1993.library.DHeadViewHandler;
+import com.socks.library.KLog;
 
 /**
  * Created by Daemon1993 on 16/10/21 下午5:38.
@@ -45,17 +46,20 @@ public class DDefaultHeadView extends FrameLayout implements DHeadViewHandler {
     }
 
     @Override
-    public void onPullRefresh() {
-
+    public void pullToRefresh() {
+        KLog.e("pullToRefresh");
     }
 
     @Override
-    public void onReleaseRefresh() {
-
+    public void releaseToRefresh() {
+        KLog.e("releaseToRefresh");
     }
 
     @Override
-    public void onProgressRefreshing(int progress, int total) {
+    public void refreshOver() {
 
+        KLog.e("refreshOver");
     }
+
+
 }

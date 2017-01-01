@@ -5,6 +5,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 
+import com.daemon1993.library.DHeadViewHandler;
 import com.daemon1993.library.DSwipeRefreshLayout;
 
 public class TextViewActivity extends AppCompatActivity {
@@ -21,14 +22,13 @@ public class TextViewActivity extends AppCompatActivity {
     private void initView() {
         drl_refresh = (DSwipeRefreshLayout) findViewById(R.id.drl_refresh);
 
-
-
         DDefaultHeadView dDefaultHeadView=new DDefaultHeadView(this);
 
         LinearLayout.LayoutParams layoutParams=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
 
-//        drlRefresh.setRefreshView(dDefaultHeadView,layoutParams);
+        drl_refresh.setRefreshView(dDefaultHeadView,layoutParams);
+        drl_refresh.setRefreshStyle(DHeadViewHandler.RfreshStyle2);
 
         drl_refresh.addOnRefreshListsner(new DSwipeRefreshLayout.OnRefreshListsner() {
             @Override

@@ -2,15 +2,19 @@ package com.daemon1993.library;
 
 import android.content.Context;
 
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+
+import com.socks.library.KLog;
 
 /**
  * Created by Daemon on 2016/10/31 13:45.
@@ -50,17 +54,25 @@ public class DefaultHeadView extends FrameLayout implements DHeadViewHandler {
 
 
     @Override
-    public void onPullRefresh() {
-        textView.setText("下拉刷新");
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        Log.e("  sds ","onDraw");
     }
 
     @Override
-    public void onReleaseRefresh() {
-        textView.setText("释放刷新");
+    public void pullToRefresh() {
+        KLog.e("pullToRefresh");
     }
 
     @Override
-    public void onProgressRefreshing(int progress, int total) {
+    public void releaseToRefresh() {
+        KLog.e("releaseToRefresh");
+    }
+
+    @Override
+    public void refreshOver() {
 
     }
+
+
 }

@@ -13,22 +13,19 @@ public interface DHeadViewHandler {
 
 
     /**
-     * 下拉刷新
+     * 下拉刷新 还未到可以刷新的状态
      */
-     void onPullRefresh();
+    void pullToRefresh();
+
+    /**
+     * 已经可以刷新 释放刷新
+     */
+    void releaseToRefresh();
 
 
     /**
-     * 释放刷新
+     * 刷新完毕
      */
-    void onReleaseRefresh();
-
-
-    /**
-     * 刷新中
-     * @param progress
-     * @param total
-     */
-    void onProgressRefreshing(int progress,int total);
+    void refreshOver();
 
 }

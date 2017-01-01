@@ -9,6 +9,7 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import com.daemon1993.library.DHeadViewHandler;
 import com.daemon1993.library.DSwipeRefreshLayout;
 
 import java.util.ArrayList;
@@ -39,7 +40,8 @@ public class ListViewActivity extends AppCompatActivity {
         LinearLayout.LayoutParams layoutParams=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
 
-//        drlRefresh.setRefreshView(dDefaultHeadView,layoutParams);
+        drl_refresh.setRefreshView(dDefaultHeadView,layoutParams);
+        drl_refresh.setRefreshStyle(DHeadViewHandler.RfreshStyle2);
 
         drl_refresh.addOnRefreshListsner(new DSwipeRefreshLayout.OnRefreshListsner() {
             @Override
